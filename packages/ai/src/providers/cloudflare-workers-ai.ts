@@ -16,7 +16,7 @@ export function cloudflareWorkersAIProvider(): Provider<"openai-completions"> {
 		models: [
 			...Object.values(CLOUDFLARE_WORKERS_AI_MODELS),
 			...Object.values(CLOUDFLARE_WORKERS_AI_CLASSIFIER_MODELS),
-		],
+		] as never[],
 		api: cloudflareStreams(openAICompletionsApi()),
 		classifiers: {
 			"cloudflare-workers-ai-system-one": cloudflareClassifier(cloudflareWorkersAISystemOneApi()),

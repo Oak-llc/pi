@@ -132,52 +132,12 @@ export function getAllBuiltinModels<TProvider extends BuiltinProvider>(provider:
 	return [...getBuiltinModels(provider), ...getBuiltinImageModels(provider), ...getBuiltinClassifierModels(provider)];
 }
 
-/** All built-in providers, freshly constructed. */
+/**
+ * Oak fork: local models only. No built-in (cloud) providers are registered; models come exclusively from
+ * models.json custom providers and extensions, and every one of those must be a loopback endpoint.
+ */
 export function builtinProviders(): Provider[] {
-	return [
-		amazonBedrockProvider(),
-		antLingProvider(),
-		anthropicProvider(),
-		azureProvider(),
-		basetenProvider(),
-		cerebrasProvider(),
-		cloudflareAIGatewayProvider(),
-		cloudflareWorkersAIProvider(),
-		deepseekProvider(),
-		fireworksProvider(),
-		githubCopilotProvider(),
-		googleProvider(),
-		googleVertexProvider(),
-		groqProvider(),
-		huggingfaceProvider(),
-		kimiCodingProvider(),
-		metaProvider(),
-		minimaxProvider(),
-		minimaxCnProvider(),
-		mistralProvider(),
-		moonshotaiProvider(),
-		moonshotaiCnProvider(),
-		nvidiaProvider(),
-		openaiProvider(),
-		openaiCodexProvider(),
-		opencodeProvider(),
-		opencodeGoProvider(),
-		openrouterProvider(),
-		qwenTokenPlanProvider(),
-		qwenTokenPlanCnProvider(),
-		qwenTokenPlanIndividualProvider(),
-		radiusProvider(),
-		togetherProvider(),
-		typesafeProvider(),
-		vercelAIGatewayProvider(),
-		xaiProvider(),
-		xiaomiProvider(),
-		xiaomiTokenPlanAmsProvider(),
-		xiaomiTokenPlanCnProvider(),
-		xiaomiTokenPlanSgpProvider(),
-		zaiProvider(),
-		zaiCodingCnProvider(),
-	];
+	return [];
 }
 
 /** A `Models` collection with every built-in provider registered. */
