@@ -2,8 +2,8 @@ import type { ChildProcess, ChildProcessByStdio } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
 	chmodSync,
+	type Dirent,
 	existsSync,
-	globSync,
 	mkdirSync,
 	readdirSync,
 	readFileSync,
@@ -290,9 +290,34 @@ function hasGlobPattern(s: string): boolean {
 	return s.includes("*") || s.includes("?");
 }
 
+/**
+ * Relative POSIX paths (files and directories) under `root`, skipping dot entries.
+ * Replaces `fs.globSync`, which Node 20 (the Electron runtime Maple embeds) does not have.
+ */
+function walkRelativePaths(root: string): string[] {
+	const found: string[] = [];
+	const walk = (dir: string, prefix: string): void => {
+		let entries: Dirent[];
+		try {
+			entries = readdirSync(dir, { withFileTypes: true });
+		} catch {
+			return;
+		}
+		for (const entry of entries) {
+			if (entry.name.startsWith(".")) continue;
+			const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+			found.push(rel);
+			if (entry.isDirectory()) walk(join(dir, entry.name), rel);
+		}
+	};
+	walk(root, "");
+	return found;
+}
+
 /** Glob entries discover visible paths; exact entries can target dot paths or symlinked trees. */
 function expandPackageGlob(pattern: string, root: string): string[] {
-	return globSync(pattern, { cwd: root })
+	return walkRelativePaths(root)
+		.filter((rel) => minimatch(rel, pattern))
 		.map((match) => resolve(root, match))
 		.filter((path) =>
 			relative(root, path)
