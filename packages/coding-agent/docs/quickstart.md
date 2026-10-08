@@ -53,15 +53,9 @@ The interface shows your conversation, an editor for prompts and commands, and a
 
 A **model** generates Pi's responses. A **provider** is the service or account Pi uses to access that model.
 
-In Pi, run:
+This build only runs **local** models. Add your model server (llama.cpp, Ollama, LM Studio, vLLM, ...) to `models.json` as an OpenAI-compatible provider with a loopback base URL, for example `http://127.0.0.1:8080/v1`. Run `/model` to switch between the models you configured.
 
-```text
-/login
-```
-
-Choose a provider, then follow the prompts to use a subscription or store an API key. Run `/model` afterward if you want to select a different available model.
-
-See [Choose a model and provider](models.md) for supported providers, environment-variable authentication, local models, and custom endpoints.
+See [Choose a model and provider](models.md) for the `models.json` format.
 
 ## 4. Give Pi a task
 

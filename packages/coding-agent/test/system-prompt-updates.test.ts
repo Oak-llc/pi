@@ -10,7 +10,6 @@ import {
 	getSystemMessageText,
 	type TranscriptContext,
 } from "@earendil-works/pi-ai";
-import { getModel } from "@earendil-works/pi-ai/compat";
 import { Type } from "typebox";
 import { describe, expect, test } from "vitest";
 import { createAgentSession } from "../src/core/sdk.ts";
@@ -22,6 +21,7 @@ import {
 	diffSystemPromptSections,
 } from "../src/core/system-prompt.ts";
 import type { ExtensionFactory } from "../src/index.ts";
+import { getModel } from "./model-fixtures.ts";
 import { createHarness } from "./suite/harness.ts";
 
 describe("system prompt updates", () => {

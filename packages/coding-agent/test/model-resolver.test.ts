@@ -3,8 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Agent } from "@earendil-works/pi-agent-core";
 import type { Model } from "@earendil-works/pi-ai";
-import { getModel, streamSimple } from "@earendil-works/pi-ai/compat";
-import { getBuiltinModels, getBuiltinProviders } from "@earendil-works/pi-ai/providers/all";
+import { streamSimple } from "@earendil-works/pi-ai/compat";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { AgentSession } from "../src/core/agent-session.ts";
 import { AuthStorage } from "../src/core/auth-storage.ts";
@@ -18,17 +17,18 @@ import {
 } from "../src/core/model-resolver.ts";
 import { SessionManager } from "../src/core/session-manager.ts";
 import { SettingsManager } from "../src/core/settings-manager.ts";
+import { getModel } from "./model-fixtures.ts";
 import { createModelRegistry, getModelRuntime } from "./model-runtime-test-utils.ts";
 import { createTestResourceLoader } from "./utilities.ts";
 
 // Mock models for testing
-const mockModels: Model<"anthropic-messages">[] = [
+const mockModels: Model<"openai-completions">[] = [
 	{
 		id: "claude-sonnet-4-5",
 		name: "Claude Sonnet 4.5",
-		api: "anthropic-messages",
+		api: "openai-completions",
 		provider: "anthropic",
-		baseUrl: "https://api.anthropic.com",
+		baseUrl: "http://127.0.0.1:1/v1",
 		reasoning: true,
 		input: ["text", "image"],
 		cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
@@ -38,9 +38,9 @@ const mockModels: Model<"anthropic-messages">[] = [
 	{
 		id: "gpt-4o",
 		name: "GPT-4o",
-		api: "anthropic-messages", // Using same type for simplicity
+		api: "openai-completions", // Using same type for simplicity
 		provider: "openai",
-		baseUrl: "https://api.openai.com",
+		baseUrl: "http://127.0.0.1:1/v1",
 		reasoning: false,
 		input: ["text", "image"],
 		cost: { input: 5, output: 15, cacheRead: 0.5, cacheWrite: 5 },
@@ -50,13 +50,13 @@ const mockModels: Model<"anthropic-messages">[] = [
 ];
 
 // Mock OpenRouter models with colons in IDs
-const mockOpenRouterModels: Model<"anthropic-messages">[] = [
+const mockOpenRouterModels: Model<"openai-completions">[] = [
 	{
 		id: "qwen/qwen3-coder:exacto",
 		name: "Qwen3 Coder Exacto",
-		api: "anthropic-messages",
+		api: "openai-completions",
 		provider: "openrouter",
-		baseUrl: "https://openrouter.ai/api/v1",
+		baseUrl: "http://127.0.0.1:1/v1",
 		reasoning: true,
 		input: ["text"],
 		cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
@@ -66,9 +66,9 @@ const mockOpenRouterModels: Model<"anthropic-messages">[] = [
 	{
 		id: "openai/gpt-4o:extended",
 		name: "GPT-4o Extended",
-		api: "anthropic-messages",
+		api: "openai-completions",
 		provider: "openrouter",
-		baseUrl: "https://openrouter.ai/api/v1",
+		baseUrl: "http://127.0.0.1:1/v1",
 		reasoning: false,
 		input: ["text", "image"],
 		cost: { input: 5, output: 15, cacheRead: 0.5, cacheWrite: 5 },
@@ -271,12 +271,12 @@ describe("resolveModelScopeWithDiagnostics", () => {
 	});
 
 	test("resolves bracketed model ids as exact references before glob matching", async () => {
-		const bracketedModel: Model<"anthropic-messages"> = {
+		const bracketedModel: Model<"openai-completions"> = {
 			id: "bracketed-model[1m]",
 			name: "Bracketed Model",
-			api: "anthropic-messages",
+			api: "openai-completions",
 			provider: "custom",
-			baseUrl: "https://example.invalid",
+			baseUrl: "http://127.0.0.1:1/v1",
 			reasoning: true,
 			input: ["text"],
 			cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
@@ -294,12 +294,12 @@ describe("resolveModelScopeWithDiagnostics", () => {
 	});
 
 	test("resolves bracketed model ids with thinking levels as exact references before glob matching", async () => {
-		const bracketedModel: Model<"anthropic-messages"> = {
+		const bracketedModel: Model<"openai-completions"> = {
 			id: "bracketed-model[1m]",
 			name: "Bracketed Model",
-			api: "anthropic-messages",
+			api: "openai-completions",
 			provider: "custom",
-			baseUrl: "https://example.invalid",
+			baseUrl: "http://127.0.0.1:1/v1",
 			reasoning: true,
 			input: ["text"],
 			cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
@@ -428,13 +428,13 @@ describe("resolveCliModel", () => {
 	});
 
 	test("prefers the sole authenticated provider for an ambiguous bare exact model id", () => {
-		const azureModel: Model<"anthropic-messages"> = {
+		const azureModel: Model<"openai-completions"> = {
 			...mockModels[1],
 			id: "gpt-5.6-sol",
 			name: "GPT 5.6 Sol",
 			provider: "azure",
 		};
-		const codexModel: Model<"anthropic-messages"> = {
+		const codexModel: Model<"openai-completions"> = {
 			...mockModels[1],
 			id: "gpt-5.6-sol",
 			name: "GPT 5.6 Sol",
@@ -456,13 +456,13 @@ describe("resolveCliModel", () => {
 	});
 
 	test("requires an explicit provider for an ambiguous bare exact model id without a unique authenticated provider", () => {
-		const azureModel: Model<"anthropic-messages"> = {
+		const azureModel: Model<"openai-completions"> = {
 			...mockModels[1],
 			id: "gpt-5.6-sol",
 			name: "GPT 5.6 Sol",
 			provider: "azure",
 		};
-		const codexModel: Model<"anthropic-messages"> = {
+		const codexModel: Model<"openai-completions"> = {
 			...mockModels[1],
 			id: "gpt-5.6-sol",
 			name: "GPT 5.6 Sol",
@@ -488,24 +488,24 @@ describe("resolveCliModel", () => {
 	test("prefers provider/model split over gateway model with matching id", () => {
 		// When a user writes "zai/glm-5", and both a zai provider model (id: "glm-5")
 		// and a gateway model (id: "zai/glm-5") exist, prefer the zai provider model.
-		const zaiModel: Model<"anthropic-messages"> = {
+		const zaiModel: Model<"openai-completions"> = {
 			id: "glm-5",
 			name: "GLM-5",
-			api: "anthropic-messages",
+			api: "openai-completions",
 			provider: "zai",
-			baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+			baseUrl: "http://127.0.0.1:1/v1",
 			reasoning: true,
 			input: ["text"],
 			cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
 			contextWindow: 128000,
 			maxTokens: 8192,
 		};
-		const gatewayModel: Model<"anthropic-messages"> = {
+		const gatewayModel: Model<"openai-completions"> = {
 			id: "zai/glm-5",
 			name: "GLM-5",
-			api: "anthropic-messages",
+			api: "openai-completions",
 			provider: "vercel-ai-gateway",
-			baseUrl: "https://ai-gateway.vercel.sh",
+			baseUrl: "http://127.0.0.1:1/v1",
 			reasoning: true,
 			input: ["text"],
 			cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
@@ -528,24 +528,24 @@ describe("resolveCliModel", () => {
 	});
 
 	test("prefers an authenticated exact raw model id over an unauthenticated inferred provider", () => {
-		const commandcodeModel: Model<"anthropic-messages"> = {
+		const commandcodeModel: Model<"openai-completions"> = {
 			id: "xiaomi/mimo-v2.5-pro",
 			name: "Xiaomi MiMo via Commandcode",
-			api: "anthropic-messages",
+			api: "openai-completions",
 			provider: "commandcode",
-			baseUrl: "https://example.invalid",
+			baseUrl: "http://127.0.0.1:1/v1",
 			reasoning: false,
 			input: ["text"],
 			cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
 			contextWindow: 128000,
 			maxTokens: 8192,
 		};
-		const xiaomiModel: Model<"anthropic-messages"> = {
+		const xiaomiModel: Model<"openai-completions"> = {
 			id: "mimo-v2.5-pro",
 			name: "Xiaomi MiMo",
-			api: "anthropic-messages",
+			api: "openai-completions",
 			provider: "xiaomi",
-			baseUrl: "https://api.xiaomimimo.com",
+			baseUrl: "http://127.0.0.1:1/v1",
 			reasoning: false,
 			input: ["text"],
 			cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
@@ -585,12 +585,12 @@ describe("resolveCliModel", () => {
 	describe("custom model fallback with :thinking suffix (#5552)", () => {
 		// Models for a provider that has registered models but the specific model ID
 		// is not in the registry (triggers buildFallbackModel path).
-		const neuralwattModel: Model<"anthropic-messages"> = {
+		const neuralwattModel: Model<"openai-completions"> = {
 			id: "some-base-model",
 			name: "Some Base Model",
-			api: "anthropic-messages",
+			api: "openai-completions",
 			provider: "neuralwatt",
-			baseUrl: "https://api.neuralwatt.com",
+			baseUrl: "http://127.0.0.1:1/v1",
 			reasoning: false,
 			input: ["text"],
 			cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
@@ -720,21 +720,6 @@ describe("default model selection", () => {
 		expect(defaultModelPerProvider["ant-ling"]).toBe("Ring-2.6-1T");
 	});
 
-	test("built-in chat providers have defaults in their generated catalogs", () => {
-		for (const provider of getBuiltinProviders()) {
-			const chatModels = getBuiltinModels(provider);
-			const defaultId = defaultModelPerProvider[provider];
-			if (chatModels.length === 0) {
-				expect(defaultId, `${provider} has no chat models and should have no chat default`).toBeUndefined();
-				continue;
-			}
-			expect(
-				chatModels.some((model) => model.id === defaultId),
-				`${provider} default ${defaultId} should exist in its generated catalog`,
-			).toBe(true);
-		}
-	});
-
 	test("ai-gateway default tracks current model", () => {
 		expect(defaultModelPerProvider["vercel-ai-gateway"]).toBe("zai/glm-5.1");
 	});
@@ -765,12 +750,12 @@ describe("default model selection", () => {
 	});
 
 	test("findInitialModel selects ai-gateway default when available", async () => {
-		const aiGatewayModel: Model<"anthropic-messages"> = {
+		const aiGatewayModel: Model<"openai-completions"> = {
 			id: "anthropic/claude-opus-4-6",
 			name: "Claude Opus 4.6",
-			api: "anthropic-messages",
+			api: "openai-completions",
 			provider: "vercel-ai-gateway",
-			baseUrl: "https://ai-gateway.vercel.sh",
+			baseUrl: "http://127.0.0.1:1/v1",
 			reasoning: true,
 			input: ["text", "image"],
 			cost: { input: 5, output: 15, cacheRead: 0.5, cacheWrite: 5 },
@@ -793,22 +778,22 @@ describe("default model selection", () => {
 	});
 
 	test("findInitialModel ignores an unauthenticated saved default", async () => {
-		const savedDeepSeekModel: Model<"anthropic-messages"> = {
+		const savedDeepSeekModel: Model<"openai-completions"> = {
 			id: "deepseek-v4-flash",
 			name: "DeepSeek V4 Flash",
-			api: "anthropic-messages",
+			api: "openai-completions",
 			provider: "deepseek",
-			baseUrl: "https://api.deepseek.com",
+			baseUrl: "http://127.0.0.1:1/v1",
 			reasoning: true,
 			input: ["text"],
 			cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1 },
 			contextWindow: 128000,
 			maxTokens: 8192,
 		};
-		const localDeepSeekModel: Model<"anthropic-messages"> = {
+		const localDeepSeekModel: Model<"openai-completions"> = {
 			...savedDeepSeekModel,
 			provider: "spark-two",
-			baseUrl: "http://spark-two:8000/v1",
+			baseUrl: "http://127.0.0.1:1/v1",
 		};
 		const registry = {
 			getModel: (provider: string, modelId: string) =>

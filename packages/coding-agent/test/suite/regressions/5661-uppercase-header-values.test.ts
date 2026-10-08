@@ -57,7 +57,7 @@ describe("regression #5661: uppercase models.json header values", () => {
 				{
 					providers: {
 						"my-provider": {
-							baseUrl: "https://example.com/v1",
+							baseUrl: "http://127.0.0.1:1/v1",
 							apiKey: "CUSTOM_API_KEY",
 							api: "openai-completions",
 							headers: { Authorization: "BEARER" },

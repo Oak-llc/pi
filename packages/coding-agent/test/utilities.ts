@@ -1,4 +1,5 @@
 import { createModelRegistry, getModelRuntime } from "./model-runtime-test-utils.ts";
+
 /**
  * Shared test utilities for coding-agent tests.
  */
@@ -8,7 +9,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Agent } from "@earendil-works/pi-agent-core";
 import type { OAuthCredentials } from "@earendil-works/pi-ai";
-import { getModel, streamSimple } from "@earendil-works/pi-ai/compat";
+import { streamSimple } from "@earendil-works/pi-ai/compat";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 import { AgentSession } from "../src/core/agent-session.ts";
 import { AuthStorage } from "../src/core/auth-storage.ts";
@@ -24,6 +25,7 @@ import type { ResourceLoader } from "../src/core/resource-loader.ts";
 import { SessionManager } from "../src/core/session-manager.ts";
 import { SettingsManager } from "../src/core/settings-manager.ts";
 import { createCodingTools } from "../src/index.ts";
+import { getModel } from "./model-fixtures.ts";
 
 /**
  * API key for authenticated tests. Tests using this should be wrapped in

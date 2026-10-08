@@ -8,7 +8,6 @@ import { VirtualTerminal } from "../../tui/test/virtual-terminal.ts";
 import type { AutocompleteProviderFactory } from "../src/core/extensions/types.ts";
 import type { QuietStartup } from "../src/core/settings-manager.ts";
 import type { SourceInfo } from "../src/core/source-info.ts";
-import type { AuthSelectorProvider } from "../src/modes/interactive/components/oauth-selector.ts";
 import { InteractiveMode } from "../src/modes/interactive/interactive-mode.ts";
 import { initTheme } from "../src/modes/interactive/theme/theme.ts";
 
@@ -451,69 +450,6 @@ describe("InteractiveMode.createBaseAutocompleteProvider", () => {
 			"openai-codex/gpt-5.5",
 			"github-copilot/gpt-5.2-codex",
 		]);
-	});
-
-	test("matches login command arguments by provider id and name", async () => {
-		type FakeInteractiveMode = {
-			session: {
-				scopedModels: [];
-				modelRuntime: { getAvailableSnapshot: () => [] };
-				promptTemplates: [];
-				extensionRunner: { getRegisteredCommands: () => [] };
-				resourceLoader: { getSkills: () => { skills: [] } };
-			};
-			settingsManager: { getEnableSkillCommands: () => boolean };
-			skillCommands: Map<string, string>;
-			sessionManager: { getCwd: () => string };
-			fdPath: null;
-			getLoginProviderOptions: () => AuthSelectorProvider[];
-		};
-
-		const createBaseAutocompleteProvider = (
-			InteractiveMode as unknown as {
-				prototype: { createBaseAutocompleteProvider(this: FakeInteractiveMode): AutocompleteProvider };
-			}
-		).prototype.createBaseAutocompleteProvider;
-		const fakeThis: FakeInteractiveMode = {
-			session: {
-				scopedModels: [],
-				modelRuntime: { getAvailableSnapshot: () => [] },
-				promptTemplates: [],
-				extensionRunner: { getRegisteredCommands: () => [] },
-				resourceLoader: { getSkills: () => ({ skills: [] }) },
-			},
-			settingsManager: { getEnableSkillCommands: () => false },
-			skillCommands: new Map(),
-			sessionManager: { getCwd: () => "/tmp" },
-			fdPath: null,
-			getLoginProviderOptions: () => [
-				{ id: "anthropic", name: "Anthropic", authType: "oauth", subscription: true },
-				{ id: "anthropic", name: "Anthropic", authType: "api_key", subscription: true },
-				{ id: "openai", name: "OpenAI", authType: "api_key" },
-				{ id: "radius", name: "Radius", authType: "oauth", subscription: false },
-			],
-		};
-
-		const provider = createBaseAutocompleteProvider.call(fakeThis);
-		const line = "/login subscription anthrop";
-		const suggestions = await provider.getSuggestions([line], 0, line.length, {
-			signal: new AbortController().signal,
-		});
-
-		expect(suggestions?.items).toEqual([
-			{
-				value: "anthropic",
-				label: "anthropic",
-				description: "Anthropic · subscription/API key",
-			},
-		]);
-
-		// OAuth sign-in without a subscription, such as Radius, is an account.
-		const radiusLine = "/login radius";
-		const radiusSuggestions = await provider.getSuggestions([radiusLine], 0, radiusLine.length, {
-			signal: new AbortController().signal,
-		});
-		expect(radiusSuggestions?.items).toEqual([{ value: "radius", label: "radius", description: "Radius · account" }]);
 	});
 });
 describe("InteractiveMode.showLoadedResources", () => {

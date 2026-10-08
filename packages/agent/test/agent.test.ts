@@ -2,7 +2,6 @@ import {
 	type AssistantMessage,
 	createAssistantMessageEventStream,
 	getCurrentSystemMessage,
-	getModel,
 	toToolDeclaration,
 	type UserMessage,
 } from "@earendil-works/pi-ai/compat";
@@ -16,6 +15,7 @@ import {
 	type StreamFn,
 	setDefaultStreamFn,
 } from "../src/index.ts";
+import { getModel } from "./model-fixtures.ts";
 
 function createUserMessage(text: string): UserMessage {
 	return { role: "user", content: text, timestamp: Date.now() };

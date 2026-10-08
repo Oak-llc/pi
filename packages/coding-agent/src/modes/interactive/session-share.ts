@@ -1,16 +1,6 @@
 import * as crypto from "node:crypto";
-import type { Container, EditorComponent, TUI } from "@earendil-works/pi-tui";
 import type { AgentSession } from "../../core/agent-session.ts";
 import { exportSessionToJsonl } from "../../core/session-export.ts";
-
-interface SessionShareContext {
-	session: AgentSession;
-	ui: TUI;
-	editorContainer: Container;
-	editor: EditorComponent;
-	showStatus: (message: string) => void;
-	showError: (message: string) => void;
-}
 
 /** Trailing `pi.share` entry carrying the system prompt and tool schemas for the session viewer. */
 export function createShareTrailingEntries(

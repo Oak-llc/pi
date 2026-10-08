@@ -168,8 +168,8 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
 	const modelsPath = options.modelsJson === undefined ? undefined : join(tempDir, "models.json");
 	if (modelsPath) writeFileSync(modelsPath, JSON.stringify(options.modelsJson));
 	const modelRegistry = modelsPath
-		? await createModelRegistry(authStorage, modelsPath)
-		: await createInMemoryModelRegistry(authStorage);
+		? await createModelRegistry(authStorage, modelsPath, { fixtures: false })
+		: await createInMemoryModelRegistry(authStorage, { fixtures: false });
 	if (withConfiguredAuth) {
 		modelRegistry.registerProvider(model.provider, {
 			baseUrl: model.baseUrl,

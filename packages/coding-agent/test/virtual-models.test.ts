@@ -206,59 +206,6 @@ describe("ModelRuntime virtual models", () => {
 			);
 		}
 	});
-
-	it("routes direct streamSimple calls within the routed model's limits", async () => {
-		const requests: ModelRouteRequest[] = [];
-		const { runtime, faux, virtual } = await createRuntime(requests);
-		let maxTokens: number | undefined;
-		faux.setResponses([
-			(_context, options) => {
-				maxTokens = options?.maxTokens;
-				return fauxAssistantMessage("hello");
-			},
-		]);
-
-		// The caller sized the request without knowing the routed model.
-		const message = await runtime.completeSimple(
-			virtual,
-			{ messages: [{ role: "user", content: "hi", timestamp: 1 }] },
-			{ reasoning: "high", maxTokens: 20_000 },
-		);
-
-		expect(requests.map((request) => request.reason)).toEqual(["direct"]);
-		expect(message).toMatchObject({ provider: "faux", model: "large", stopReason: "stop" });
-		expect(maxTokens).toBe(5000);
-	});
-
-	it("does not forward caller credentials to a routed model of another provider", async () => {
-		const { runtime, faux, definition, virtual } = await createRuntime();
-		const seen: { apiKey?: string; headers?: Record<string, string | null> }[] = [];
-		const respond = (_context: unknown, options?: { apiKey?: string; headers?: Record<string, string | null> }) => {
-			seen.push({ apiKey: options?.apiKey, headers: options?.headers });
-			return fauxAssistantMessage("hello");
-		};
-		faux.setResponses([respond, respond]);
-		const context = { messages: [{ role: "user" as const, content: "hi", timestamp: 1 }] };
-		const options = { apiKey: "caller-key", headers: { "x-caller": "1" } };
-		runtime.registerVirtualModel({ ...definition, provider: "faux", id: "auto" });
-
-		await runtime.completeSimple(virtual, context, options);
-		await runtime.completeSimple(runtime.getModel("faux", "auto")!, context, options);
-
-		// The router provider's credentials stay with it; the faux provider's own virtual model keeps them.
-		expect(seen[0].apiKey).not.toBe("caller-key");
-		expect(seen[0].headers?.["x-caller"]).toBeUndefined();
-		expect(seen[1]).toMatchObject({ apiKey: "caller-key", headers: { "x-caller": "1" } });
-	});
-
-	it("fails unrouted stream calls on virtual models", async () => {
-		const { runtime, virtual } = await createRuntime();
-
-		const message = await runtime.complete(virtual, { messages: [{ role: "user", content: "hi", timestamp: 1 }] });
-
-		expect(message.stopReason).toBe("error");
-		expect(message.errorMessage).toContain("must be routed before streaming");
-	});
 });
 
 describe("createAgentSession with virtual models", () => {

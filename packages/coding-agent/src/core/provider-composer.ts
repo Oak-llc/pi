@@ -541,7 +541,10 @@ export function validateExtensionProvider(
 	if (extension.streamSimple && !extension.api) {
 		throw new Error(`Provider ${providerId}: "api" is required when registering streamSimple.`);
 	}
-	applyExtension(providerId, applyModelsJson(providerId, getAllProviderModels(base), modelsConfig), extension);
+	assertLocalModels(
+		providerId,
+		applyExtension(providerId, applyModelsJson(providerId, getAllProviderModels(base), modelsConfig), extension),
+	);
 }
 
 /** Compose built-in, models.json, and extension layers without reading credentials. */

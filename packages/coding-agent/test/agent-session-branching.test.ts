@@ -10,7 +10,6 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getModel } from "@earendil-works/pi-ai/compat";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AgentSession } from "../src/core/agent-session.ts";
 import {
@@ -22,6 +21,7 @@ import {
 } from "../src/core/agent-session-runtime.ts";
 import { AuthStorage } from "../src/core/auth-storage.ts";
 import { SessionManager } from "../src/core/session-manager.ts";
+import { getModel } from "./model-fixtures.ts";
 import { API_KEY } from "./utilities.ts";
 
 describe.skipIf(!API_KEY)("AgentSession forking", () => {

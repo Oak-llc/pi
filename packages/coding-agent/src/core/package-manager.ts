@@ -316,8 +316,10 @@ function walkRelativePaths(root: string): string[] {
 
 /** Glob entries discover visible paths; exact entries can target dot paths or symlinked trees. */
 function expandPackageGlob(pattern: string, root: string): string[] {
+	// fs.globSync accepted "./x" and "x/" spellings; minimatch needs them normalized.
+	const normalized = pattern.replace(/^(?:\.\/)+/u, "").replace(/\/+$/u, "");
 	return walkRelativePaths(root)
-		.filter((rel) => minimatch(rel, pattern))
+		.filter((rel) => minimatch(rel, normalized))
 		.map((match) => resolve(root, match))
 		.filter((path) =>
 			relative(root, path)

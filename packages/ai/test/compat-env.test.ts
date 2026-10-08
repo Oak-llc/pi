@@ -10,7 +10,7 @@ const model: Model<"openai-responses"> = {
 	name: "Test Model",
 	api: "openai-responses",
 	provider: "custom-openai",
-	baseUrl: "https://example.test/v1",
+	baseUrl: "http://127.0.0.1:9/v1",
 	reasoning: false,
 	input: ["text"],
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

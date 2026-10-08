@@ -49,7 +49,7 @@ cd /path/to/project
 pi
 ```
 
-For a built-in AI provider, run `/login` inside Pi to connect a subscription or API key. Then give Pi a task.
+This build runs local models only: add a loopback OpenAI-compatible endpoint (llama.cpp, Ollama, LM Studio, vLLM, ...) to `models.json`, then give Pi a task. See [FORK.md](FORK.md).
 
 See the [documentation](https://pi.dev/docs/latest) for full setup and usage instructions, or [visit pi.dev](https://pi.dev) for demos.
 

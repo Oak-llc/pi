@@ -31,7 +31,7 @@ function modelsJson(provider: string, model: string): Record<string, unknown> {
 	return {
 		providers: {
 			[provider]: {
-				baseUrl: "https://example.test/v1",
+				baseUrl: "http://127.0.0.1:1/v1",
 				api: "openai-completions",
 				apiKey: "test-key",
 				models: [{ id: model }],

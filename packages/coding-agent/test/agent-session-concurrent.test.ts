@@ -1,4 +1,5 @@
 import { createModelRegistry, getModelRuntime } from "./model-runtime-test-utils.ts";
+
 /**
  * Tests for AgentSession concurrent prompt guard.
  */
@@ -10,7 +11,6 @@ import { Agent } from "@earendil-works/pi-agent-core";
 import {
 	type AssistantMessage,
 	createAssistantMessageEventStream,
-	getModel,
 	type ImageContent,
 	type TextContent,
 } from "@earendil-works/pi-ai/compat";
@@ -25,13 +25,14 @@ import {
 	type NormalizedBuildSystemPromptOptions,
 	normalizeBuildSystemPromptOptions,
 } from "../src/core/system-prompt.ts";
+import { getModel } from "./model-fixtures.ts";
 import { createTestExtensionsResult, createTestResourceLoader } from "./utilities.ts";
 
 function createAssistantMessage(text: string): AssistantMessage {
 	return {
 		role: "assistant",
 		content: [{ type: "text", text }],
-		api: "anthropic-messages",
+		api: "openai-completions",
 		provider: "anthropic",
 		model: "mock",
 		usage: {
@@ -367,7 +368,7 @@ describe("AgentSession concurrent prompt guard", () => {
 						const message: AssistantMessage = {
 							role: "assistant",
 							content: [{ type: "text", text: "done" }],
-							api: "anthropic-messages",
+							api: "openai-completions",
 							provider: "anthropic",
 							model: "mock",
 							usage: {
@@ -392,7 +393,7 @@ describe("AgentSession concurrent prompt guard", () => {
 							{ type: "toolCall", id: "toolu_1", name: "dummy", arguments: { q: "x" } },
 							{ type: "toolCall", id: "toolu_2", name: "dummy", arguments: { q: "y" } },
 						],
-						api: "anthropic-messages",
+						api: "openai-completions",
 						provider: "anthropic",
 						model: "mock",
 						usage: {
@@ -516,7 +517,7 @@ describe("AgentSession concurrent prompt guard", () => {
 						const message: AssistantMessage = {
 							role: "assistant",
 							content: [{ type: "text", text: "done" }],
-							api: "anthropic-messages",
+							api: "openai-completions",
 							provider: "anthropic",
 							model: "mock",
 							usage: {
@@ -541,7 +542,7 @@ describe("AgentSession concurrent prompt guard", () => {
 							{ type: "text", text: "calling tool" },
 							{ type: "toolCall", id: "toolu_1", name: "dummy", arguments: { q: "x" } },
 						],
-						api: "anthropic-messages",
+						api: "openai-completions",
 						provider: "anthropic",
 						model: "mock",
 						usage: {

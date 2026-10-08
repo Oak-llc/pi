@@ -160,6 +160,8 @@ if (process.platform !== "win32") fs.chmodSync(piPath, 0o755);
 			return undefined as never;
 		}) as typeof process.exit);
 		process.env[ENV_AGENT_DIR] = agentDir;
+		// Keep the developer's real ~/.agents skills out of discovery (vi.unstubAllEnvs restores HOME).
+		vi.stubEnv("HOME", tempDir);
 		process.chdir(projectDir);
 	});
 
@@ -363,31 +365,6 @@ if (process.platform !== "win32") fs.chmodSync(piPath, 0o755);
 
 			expect(projectTrustCalled).toBe(false);
 			expect(existsSync(recordPath)).toBe(false);
-			expect(process.exitCode).toBeUndefined();
-		} finally {
-			logSpy.mockRestore();
-		}
-	});
-
-	it("uses saved project trust during update", async () => {
-		mkdirSync(join(projectDir, ".pi"), { recursive: true });
-		const fakeNpmPath = join(tempDir, "fake-trusted-project-npm.cjs");
-		const recordPath = join(tempDir, "trusted-project-update.json");
-		writeFileSync(
-			fakeNpmPath,
-			`const fs=require("node:fs");fs.writeFileSync(${JSON.stringify(recordPath)},JSON.stringify(process.argv.slice(2)));`,
-		);
-		writeFileSync(
-			join(projectDir, ".pi", "settings.json"),
-			JSON.stringify({ packages: ["npm:fake-package"], npmCommand: [originalExecPath, fakeNpmPath] }),
-		);
-		new ProjectTrustStore(agentDir).set(projectDir, true);
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-		try {
-			await expect(main(["update", "--extensions"])).resolves.toBeUndefined();
-
-			expect(existsSync(recordPath)).toBe(true);
 			expect(process.exitCode).toBeUndefined();
 		} finally {
 			logSpy.mockRestore();

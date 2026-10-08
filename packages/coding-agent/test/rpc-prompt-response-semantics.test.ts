@@ -2,12 +2,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Agent } from "@earendil-works/pi-agent-core";
-import {
-	type AssistantMessage,
-	createAssistantMessageEventStream,
-	getModel,
-	type Model,
-} from "@earendil-works/pi-ai/compat";
+import { type AssistantMessage, createAssistantMessageEventStream, type Model } from "@earendil-works/pi-ai/compat";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentSession } from "../src/core/agent-session.ts";
 import type { AgentSessionRuntime } from "../src/core/agent-session-runtime.ts";
@@ -16,6 +11,7 @@ import type { LoadExtensionsResult } from "../src/core/extensions/index.ts";
 import { SessionManager } from "../src/core/session-manager.ts";
 import { SettingsManager } from "../src/core/settings-manager.ts";
 import { runRpcMode } from "../src/modes/rpc/rpc-mode.ts";
+import { getModel } from "./model-fixtures.ts";
 import { createInMemoryModelRegistry, getModelRuntime } from "./model-runtime-test-utils.ts";
 import { createTestExtensionsResult, createTestResourceLoader } from "./utilities.ts";
 
@@ -47,7 +43,7 @@ function createAssistantMessage(text: string): AssistantMessage {
 	return {
 		role: "assistant",
 		content: [{ type: "text", text }],
-		api: "anthropic-messages",
+		api: "openai-completions",
 		provider: "anthropic",
 		model: "claude-sonnet-4-5",
 		usage: {
@@ -189,7 +185,7 @@ describe("RPC prompt response semantics", () => {
 				name: "Fake Model",
 				api: "openai-completions",
 				provider: "fake-provider",
-				baseUrl: "https://example.invalid",
+				baseUrl: "http://127.0.0.1:1/v1",
 				reasoning: false,
 				input: [],
 				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -209,9 +205,7 @@ describe("RPC prompt response semantics", () => {
 					type: "response",
 					command: "prompt",
 					success: false,
-					error: expect.stringContaining(
-						"No API key found for fake-provider.\n\nUse /login to log into a provider via OAuth or API key. See:",
-					),
+					error: expect.stringContaining("No API key found for fake-provider."),
 				});
 			});
 		} finally {

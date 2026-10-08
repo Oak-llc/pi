@@ -43,7 +43,7 @@ describe("createAgentSession stream options", () => {
 			name: "Capture Model",
 			api,
 			provider: "capture-provider",
-			baseUrl: "https://capture.invalid/v1",
+			baseUrl: "http://127.0.0.1:1/v1",
 			reasoning: false,
 			input: ["text"],
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -149,7 +149,7 @@ describe("createAgentSession stream options", () => {
 
 	async function createCacheWarmingSession(populate?: (manager: SessionManager, model: Model<Api>) => void) {
 		const model: Model<Api> = {
-			...createModel("anthropic-messages"),
+			...createModel("openai-completions"),
 			cost: { input: 10, output: 50, cacheRead: 0.25, cacheWrite: 12.5 },
 			promptCache: { short: 300 },
 		};

@@ -2,7 +2,6 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Provider } from "@earendil-works/pi-ai";
-import { getModel } from "@earendil-works/pi-ai/compat";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AuthStorage } from "../src/core/auth-storage.ts";
 import { ModelRuntime } from "../src/core/model-runtime.ts";
@@ -11,6 +10,7 @@ import type { ExtensionFactory } from "../src/core/sdk.ts";
 import { createAgentSession } from "../src/core/sdk.ts";
 import { SessionManager } from "../src/core/session-manager.ts";
 import { SettingsManager } from "../src/core/settings-manager.ts";
+import { getModel } from "./model-fixtures.ts";
 
 function nativeAnthropicProvider(baseUrl: string): Provider {
 	const model = { ...getModel("anthropic", "claude-sonnet-4-5")!, baseUrl };
@@ -92,36 +92,6 @@ describe("AgentSession dynamic provider registration", () => {
 		return baseUrl;
 	}
 
-	it("applies top-level registerProvider overrides to the active model", async () => {
-		const session = await createSession([
-			(pi) => {
-				pi.registerProvider("anthropic", { baseUrl: "http://localhost:8080/top-level" });
-			},
-		]);
-
-		expect(session.model?.baseUrl).toBe("http://localhost:8080/top-level");
-		expect(await capturePromptBaseUrl(session)).toBe("http://localhost:8080/top-level");
-
-		session.dispose();
-	});
-
-	it("applies session_start registerProvider overrides to the active model", async () => {
-		const session = await createSession([
-			(pi) => {
-				pi.on("session_start", () => {
-					pi.registerProvider("anthropic", { baseUrl: "http://localhost:8080/session-start" });
-				});
-			},
-		]);
-
-		await session.bindExtensions({});
-
-		expect(session.model?.baseUrl).toBe("http://localhost:8080/session-start");
-		expect(await capturePromptBaseUrl(session)).toBe("http://localhost:8080/session-start");
-
-		session.dispose();
-	});
-
 	it("registers native pi-ai providers during extension loading", async () => {
 		const session = await createSession([
 			(pi) => {
@@ -131,27 +101,6 @@ describe("AgentSession dynamic provider registration", () => {
 
 		expect(session.model?.baseUrl).toBe("http://localhost:8080/native-top-level");
 		expect(await capturePromptBaseUrl(session)).toBe("http://localhost:8080/native-top-level");
-
-		session.dispose();
-	});
-
-	it("applies command-time registerProvider overrides without reload", async () => {
-		const session = await createSession([
-			(pi) => {
-				pi.registerCommand("use-proxy", {
-					description: "Use proxy",
-					handler: async () => {
-						pi.registerProvider("anthropic", { baseUrl: "http://localhost:8080/command" });
-					},
-				});
-			},
-		]);
-
-		await session.bindExtensions({});
-		await session.prompt("/use-proxy");
-
-		expect(session.model?.baseUrl).toBe("http://localhost:8080/command");
-		expect(await capturePromptBaseUrl(session)).toBe("http://localhost:8080/command");
 
 		session.dispose();
 	});

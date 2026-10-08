@@ -18,7 +18,6 @@ import {
 	type AssistantMessage,
 	type AssistantMessageEventStream,
 	type Context,
-	getModel,
 	type Model,
 	type SimpleStreamOptions,
 	Type,
@@ -34,6 +33,7 @@ import type { ResourceLoader } from "../src/core/resource-loader.ts";
 import { createAgentSession } from "../src/core/sdk.ts";
 import { SessionManager } from "../src/core/session-manager.ts";
 import { SettingsManager } from "../src/core/settings-manager.ts";
+import { getModel } from "./model-fixtures.ts";
 import { createModelRegistry, getModelRuntime } from "./model-runtime-test-utils.ts";
 
 type Transport = "sse" | "websocket" | "websocket-cached" | "auto";

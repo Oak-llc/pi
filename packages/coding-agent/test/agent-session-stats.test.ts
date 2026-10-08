@@ -1,17 +1,12 @@
 import { Agent } from "@earendil-works/pi-agent-core";
-import {
-	type AssistantMessage,
-	getModel,
-	streamSimple,
-	type ToolResultMessage,
-	type Usage,
-} from "@earendil-works/pi-ai/compat";
+import { type AssistantMessage, streamSimple, type ToolResultMessage, type Usage } from "@earendil-works/pi-ai/compat";
 import { describe, expect, it } from "vitest";
 import { AgentSession } from "../src/core/agent-session.ts";
 import { AuthStorage } from "../src/core/auth-storage.ts";
 import { SessionManager } from "../src/core/session-manager.ts";
 import { SettingsManager } from "../src/core/settings-manager.ts";
 import { getUsageCostBreakdown } from "../src/core/usage-totals.ts";
+import { getModel } from "./model-fixtures.ts";
 import { createInMemoryModelRegistry, getModelRuntime } from "./model-runtime-test-utils.ts";
 import { createTestResourceLoader } from "./utilities.ts";
 

@@ -102,7 +102,7 @@ describe("config value env var syntax migration", () => {
 					{
 						providers: {
 							"custom-provider": {
-								baseUrl: "https://example.com/v1",
+								baseUrl: "http://127.0.0.1:1/v1",
 								apiKey: "CUSTOM_API_KEY",
 								api: "openai-completions",
 								headers: {
