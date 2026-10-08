@@ -11,6 +11,7 @@ import type {
 	ChatCompletionSystemMessageParam,
 	ChatCompletionToolMessageParam,
 } from "openai/resources/chat/completions.js";
+import { assertLoopbackBaseUrl } from "../local-only.ts";
 import { calculateCost, clampThinkingLevel } from "../models.ts";
 import type {
 	AssistantMessage,
@@ -790,6 +791,8 @@ function createClient(
 		Object.assign(headers, optionsHeaders);
 	}
 
+	// Oak fork: last line of defense - never construct a client for a non-loopback endpoint.
+	assertLoopbackBaseUrl(model.baseUrl, `${model.provider}/${model.id}`);
 	return new OpenAI({
 		apiKey,
 		baseURL: model.baseUrl,

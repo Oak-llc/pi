@@ -25,7 +25,10 @@ export function radiusProvider(options: RadiusProviderOptions = {}): Provider<"p
 	const gateway = normalizeRadiusGatewayUrl(options.gateway ?? DEFAULT_RADIUS_GATEWAY);
 	const baselineModels: Model<"pi-messages">[] =
 		gateway === normalizeRadiusGatewayUrl(DEFAULT_RADIUS_GATEWAY)
-			? Object.values(RADIUS_MODELS as Record<string, Model<"pi-messages">>).map((model) => ({ ...model, provider: id }))
+			? Object.values(RADIUS_MODELS as Record<string, Model<"pi-messages">>).map((model) => ({
+					...model,
+					provider: id,
+				}))
 			: [];
 	// Gateway catalog for this account. Radius org owners can disable models, so once known it replaces
 	// the shipped baseline instead of overlaying it. The baseline only covers the time before any catalog exists.

@@ -9,6 +9,8 @@ import {
 	type ClassifierApi,
 	type Credential,
 	type ImageApi,
+	isLocalChatApi,
+	isLoopbackUrl,
 	isModelType,
 	lazyStream,
 	type Model,
@@ -350,7 +352,7 @@ function applyExtension(
 	return config.models.map((definition) => extensionModelFromDefinition(providerId, models, config, definition));
 }
 
-function adaptOAuth(config: ExtensionOAuthConfig): OAuthAuth {
+function _adaptOAuth(config: ExtensionOAuthConfig): OAuthAuth {
 	return {
 		name: config.name,
 		isSubscription: config.isSubscription,
@@ -451,7 +453,9 @@ function composeApiKeyAuth(
 				return { type: "api_key", source: "configured API key" };
 			}
 			if (inherited?.check) return inherited.check(input);
-			const resolved = await inherited?.resolve(input);
+			// Oak fork: local servers usually need no key, so a custom provider without one is still available.
+			if (!inherited) return { type: "api_key", source: "local server (no key)" };
+			const resolved = await inherited.resolve(input);
 			return resolved ? { type: "api_key", source: resolved.source } : undefined;
 		},
 		resolve: async (input) => {
@@ -469,38 +473,16 @@ function composeApiKeyAuth(
 					? await inherited.resolve({ ...input, credential: { type: "api_key", key } })
 					: { auth: { apiKey: key }, source: "configured API key" };
 			} else {
-				result = await inherited?.resolve(input);
+				// Oak fork: keyless loopback providers get a placeholder key (OpenAI-compatible clients require one).
+				result = inherited
+					? await inherited.resolve(input)
+					: { auth: { apiKey: "local" }, source: "local server (no key)" };
 			}
 			if (!result) return undefined;
 			const explicitEnv = { ...(input.credential?.env ?? {}), ...(result.env ?? {}) };
 			const headerEnv = await configContextEnv(Object.values(rawHeaders ?? {}), input.ctx, explicitEnv);
 			const headers = resolveHeadersOrThrow(rawHeaders, `provider "${providerId}"`, headerEnv);
 			return { ...result, auth: withConfiguredAuth(result.auth, headers, authHeader) };
-		},
-	};
-}
-
-function composeOAuthAuth(
-	providerId: string,
-	base: Provider | undefined,
-	config: ModelsJsonProvider | undefined,
-	extension: ProviderConfigInput | undefined,
-): OAuthAuth | undefined {
-	const oauth = extension?.oauth ? adaptOAuth(extension.oauth) : base?.auth.oauth;
-	if (!oauth) return undefined;
-	const rawHeaders = configuredHeaders(config, extension);
-	const authHeader = extension?.authHeader ?? config?.authHeader ?? false;
-	return {
-		...oauth,
-		toAuth: async (credential) => {
-			const auth = await oauth.toAuth(credential);
-			const env = credential.env;
-			const headers = resolveHeadersOrThrow(
-				rawHeaders,
-				`provider "${providerId}"`,
-				typeof env === "object" && env !== null ? (env as Record<string, string>) : undefined,
-			);
-			return withConfiguredAuth(auth, headers, authHeader);
 		},
 	};
 }
@@ -526,12 +508,36 @@ function rawModelHeaders(
 	return Object.keys(headers).length > 0 ? headers : undefined;
 }
 
+/** Oak fork: OAuth providers (the /login flow) do not exist in this build. */
+function assertLocalProvider(providerId: string, extension: ProviderConfigInput | undefined): void {
+	if (extension?.oauth) {
+		throw new Error(`Provider ${providerId}: OAuth providers are not supported (local models only).`);
+	}
+}
+
+/** Oak fork: every model must target a loopback endpoint and a chat API a local server speaks. */
+function assertLocalModels(providerId: string, models: readonly AnyModel[]): void {
+	for (const model of models) {
+		if (!isLoopbackUrl(model.baseUrl)) {
+			throw new Error(
+				`Provider ${providerId}: model "${model.id}" has base URL ${model.baseUrl ? `"${model.baseUrl}"` : "(none)"}; only loopback endpoints (127.0.0.1, localhost, ::1) are allowed.`,
+			);
+		}
+		if (isModelType(model, "chat") && !isLocalChatApi(model.api)) {
+			throw new Error(
+				`Provider ${providerId}: model "${model.id}" uses api "${model.api}"; local models must use "openai-completions" or "openai-responses".`,
+			);
+		}
+	}
+}
+
 export function validateExtensionProvider(
 	providerId: string,
 	base: Provider | undefined,
 	modelsConfig: ModelsJsonProvider | undefined,
 	extension: ProviderConfigInput,
 ): void {
+	assertLocalProvider(providerId, extension);
 	if (extension.streamSimple && !extension.api) {
 		throw new Error(`Provider ${providerId}: "api" is required when registering streamSimple.`);
 	}
@@ -574,10 +580,10 @@ export function composeModelProvider(
 		});
 	};
 	// Validate eagerly so registration/reload reports structural errors immediately.
-	getAllModels();
+	assertLocalProvider(providerId, extension);
+	assertLocalModels(providerId, getAllModels());
 	const apiKey = composeApiKeyAuth(providerId, base, config, extension);
-	const oauth = composeOAuthAuth(providerId, base, config, extension);
-	if (!apiKey && !oauth) throw new Error(`Provider ${providerId}: no authentication method configured.`);
+	if (!apiKey) throw new Error(`Provider ${providerId}: no authentication method configured.`);
 
 	const supportsBaseApi = (model: Model<Api>) => base?.getModels().some((entry) => entry.api === model.api) ?? false;
 	const streamWith = (
@@ -607,7 +613,7 @@ export function composeModelProvider(
 		name: extension?.name ?? config?.name ?? base?.name ?? extension?.oauth?.name ?? providerId,
 		baseUrl: extension?.baseUrl ?? config?.baseUrl ?? base?.baseUrl,
 		headers: base?.headers,
-		auth: { ...(apiKey ? { apiKey } : {}), ...(oauth ? { oauth } : {}) },
+		auth: { apiKey },
 		getModels: () => getAllModels().filter((model) => isModelType(model, "chat")),
 		getAllModels,
 		refreshModels:

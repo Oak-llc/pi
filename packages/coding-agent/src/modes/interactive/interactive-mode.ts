@@ -8,7 +8,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { AuthEvent, AuthPrompt } from "@earendil-works/pi-ai";
 import {
 	type AssistantMessage,
 	type ImageContent,
@@ -60,9 +59,7 @@ import {
 	CONFIG_DIR_NAME,
 	detectInstallChange,
 	getAgentDir,
-	getAuthPath,
 	getDebugLogPath,
-	getDocsPath,
 	VERSION,
 } from "../../config.ts";
 import { type AgentSession, type AgentSessionEvent, parseSkillBlock } from "../../core/agent-session.ts";
@@ -95,16 +92,13 @@ import type {
 import { FooterDataProvider, type ReadonlyFooterDataProvider } from "../../core/footer-data-provider.ts";
 import { configureHttpDispatcher, formatHttpIdleTimeoutMs } from "../../core/http-dispatcher.ts";
 import { type AppKeybinding, KeybindingsManager } from "../../core/keybindings.ts";
-import type { McpHttpServerConfig } from "../../core/mcp-servers.ts";
 import { createCompactionSummaryMessage, createCustomMessage } from "../../core/messages.ts";
 import {
 	defaultModelPerProvider,
 	findExactModelReferenceMatch,
 	resolveModelScopeFromModels,
 } from "../../core/model-resolver.ts";
-import { CredentialSynchronizationError } from "../../core/model-runtime.ts";
 import { DefaultPackageManager } from "../../core/package-manager.ts";
-import { RADIUS_MCP_URL, RADIUS_PROVIDER_ID } from "../../core/radius.ts";
 import type { ResourceDiagnostic } from "../../core/resource-loader.ts";
 import { formatMissingSessionCwdPrompt, MissingSessionCwdError } from "../../core/session-cwd.ts";
 import {
@@ -121,7 +115,6 @@ import { withBuiltInRenderers } from "../../core/tools/renderers/index.ts";
 import type { TruncationResult } from "../../core/tools/truncate.ts";
 import { hasTrustRequiringProjectResources, ProjectTrustStore } from "../../core/trust-manager.ts";
 import { getUsageCostBreakdown } from "../../core/usage-totals.ts";
-import { addMcpServerConfig, loadMcpConfig } from "../../extensions/mcp/config.ts";
 import { getChangelogPath, getNewEntries, normalizeChangelogLinks, parseChangelog } from "../../utils/changelog.ts";
 import { copyToClipboard, readClipboardFilePaths, readClipboardText } from "../../utils/clipboard.ts";
 import { extensionForImageMimeType, readClipboardImage } from "../../utils/clipboard-image.ts";
@@ -133,7 +126,6 @@ import { killTrackedDetachedChildren } from "../../utils/shell.ts";
 import { loadAllHighlightLanguages } from "../../utils/syntax-highlight.ts";
 import { ensureTool, type ToolStatus } from "../../utils/tools-manager.ts";
 import { checkForNewPiVersion, type LatestPiRelease } from "../../utils/version-check.ts";
-import { reportBug } from "./bug-report.ts";
 import { createChatViewport } from "./chat-viewport.ts";
 import { ArminComponent } from "./components/armin.ts";
 import { AssistantMessageComponent } from "./components/assistant-message.ts";
@@ -177,7 +169,6 @@ import { editInExternalEditor } from "./external-editor.ts";
 import { refreshModelCatalogs } from "./model-catalog-refresh.ts";
 import { getModelSearchText } from "./model-search.ts";
 import { type BlockedStatus, ProgramStatusReporter } from "./program-status-reporter.ts";
-import { shareSession } from "./session-share.ts";
 import {
 	getAvailableThemes,
 	getAvailableThemesWithPaths,
@@ -317,7 +308,7 @@ function isAnthropicSubscriptionAuthKey(apiKey: string | undefined): boolean {
 	return typeof apiKey === "string" && apiKey.startsWith("sk-ant-oat");
 }
 
-function isUnknownModel(model: Model<any> | undefined): boolean {
+function _isUnknownModel(model: Model<any> | undefined): boolean {
 	return !!model && model.provider === "unknown" && model.id === "unknown" && model.api === "unknown";
 }
 
@@ -343,7 +334,7 @@ export function formatResumeCommand(sessionManager: SessionManager): string | un
 	return args.join(" ");
 }
 
-function hasDefaultModelProvider(providerId: string): providerId is keyof typeof defaultModelPerProvider {
+function _hasDefaultModelProvider(providerId: string): providerId is keyof typeof defaultModelPerProvider {
 	return providerId in defaultModelPerProvider;
 }
 
@@ -491,8 +482,6 @@ export class InteractiveMode {
 		() => this.sessionManager.getSessionName(),
 	);
 
-	/** The `/bug` hint is shown at most once per session so error output stays readable. */
-	private bugReportHintShown = false;
 	private installChangeWarningShown = false;
 
 	// Extension UI state
@@ -1147,7 +1136,7 @@ export class InteractiveMode {
 		if (crash) {
 			const when = new Date(crash.timestamp).toLocaleString();
 			this.showWarning(
-				`${APP_NAME} crashed on ${when} (${crash.message}). Run /bug to report it; the crash details are attached automatically.`,
+				`${APP_NAME} crashed on ${when} (${crash.message}). Resume the session with \`${APP_NAME} -r\` to continue.`,
 			);
 		}
 
@@ -2088,27 +2077,13 @@ export class InteractiveMode {
 
 	private crashReportInstructions(): string {
 		const resume = this.session.sessionFile ? `run \`${APP_NAME} -r\` to resume the session, then` : "start pi and";
-		return `To report this crash: ${resume} run /bug. The crash details are attached automatically.`;
-	}
-
-	private suggestBugReport(): void {
-		if (this.bugReportHintShown) return;
-		this.bugReportHintShown = true;
-		this.chatContainer.addChild(
-			new ThemedText(
-				() => theme.fg("muted", `If this looks like a ${APP_NAME} bug, /bug sends a report to the developers.`),
-				this.outputPad,
-				0,
-			),
-		);
-		this.ui.requestRender();
+		return `To continue after this crash: ${resume} carry on from where you left off.`;
 	}
 
 	private maybeSuggestBugReport(message: AssistantMessage): void {
 		if (message.stopReason !== "error" || isRetryableAssistantError(message)) return;
 		if (/\b(?:abort(?:ed)?|cancel(?:l?ed)?)\b/i.test(message.errorMessage ?? "")) return;
-		if (this.maybeShowInstallChangeWarning()) return;
-		this.suggestBugReport();
+		this.maybeShowInstallChangeWarning();
 	}
 
 	/**
@@ -3158,17 +3133,6 @@ export class InteractiveMode {
 			if (text === "/import" || text.startsWith("/import ")) {
 				await this.handleImportCommand(text);
 				this.editor.setText("");
-				return;
-			}
-			if (text === "/share") {
-				await this.handleShareCommand();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/bug" || text.startsWith("/bug ")) {
-				const hint = text.slice("/bug".length).trim();
-				this.editor.setText("");
-				await this.handleBugCommand(hint ? hint : undefined);
 				return;
 			}
 			if (text === "/copy") {
@@ -5883,32 +5847,6 @@ export class InteractiveMode {
 			}
 			await this.handleFatalRuntimeError("Failed to import session", error);
 		}
-	}
-
-	private async handleShareCommand(): Promise<void> {
-		await shareSession({
-			session: this.session,
-			ui: this.ui,
-			editorContainer: this.editorContainer,
-			editor: this.editor,
-			showStatus: (message) => this.showStatus(message),
-			showError: (message) => this.showError(message),
-		});
-	}
-
-	private async handleBugCommand(hint: string | undefined): Promise<void> {
-		await reportBug(
-			{
-				session: this.session,
-				ui: this.ui,
-				editorContainer: this.editorContainer,
-				editor: this.editor,
-				keybindings: this.keybindings,
-				showStatus: (message) => this.showStatus(message),
-				showError: (message) => this.showError(message),
-			},
-			hint,
-		);
 	}
 
 	private async handleCopyCommand(

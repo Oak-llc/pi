@@ -38,7 +38,7 @@ import { openAICodexResponsesApi } from "./api/openai-codex-responses.lazy.ts";
 import { openAICompletionsApi } from "./api/openai-completions.lazy.ts";
 import { openAIResponsesApi } from "./api/openai-responses.lazy.ts";
 import { piMessagesApi } from "./api/pi-messages.lazy.ts";
-import { getEnvApiKey } from "./env-api-keys.ts";
+import { blockedStream, isLoopbackUrl } from "./local-only.ts";
 import type { ModelsApiStreamOptions } from "./models.ts";
 import { builtinModels, getBuiltinModel, getBuiltinModels, getBuiltinProviders } from "./providers/all.ts";
 
@@ -215,7 +215,7 @@ export function resetApiProviders(): void {
 registerBuiltInApiProviders();
 
 const compatModels = builtinModels();
-const AMBIENT_AUTH_MARKER = "<authenticated>";
+const _AMBIENT_AUTH_MARKER = "<authenticated>";
 
 function hasExplicitApiKey(apiKey: string | undefined): apiKey is string {
 	return typeof apiKey === "string" && apiKey.trim().length > 0;
@@ -225,10 +225,9 @@ function withEnvApiKey<TOptions extends StreamOptions>(
 	model: Model<Api>,
 	options: TOptions | undefined,
 ): TOptions | undefined {
-	if (hasExplicitApiKey(options?.apiKey)) return options;
-	const apiKey = getEnvApiKey(model.provider, options?.env);
-	if (!apiKey || apiKey === AMBIENT_AUTH_MARKER) return options;
-	return { ...options, apiKey } as TOptions;
+	// Oak fork: environment API keys are never read; local servers authenticate with an explicit key or none.
+	void model;
+	return options;
 }
 
 function hasResolvedCloudflareAuth(options: StreamOptions | undefined): boolean {
@@ -254,6 +253,7 @@ export function stream<TApi extends Api>(
 	context: Context,
 	options?: ProviderStreamOptions,
 ): AssistantMessageEventStream {
+	if (!isLoopbackUrl(model.baseUrl)) return blockedStream(model);
 	const transcript = normalizeContext(context);
 	const builtinProvider = getBuiltinProviderForModel(model);
 	if (builtinProvider) {
@@ -280,6 +280,7 @@ export function streamSimple<TApi extends Api>(
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream {
+	if (!isLoopbackUrl(model.baseUrl)) return blockedStream(model);
 	const transcript = normalizeContext(context);
 	const builtinProvider = getBuiltinProviderForModel(model);
 	if (builtinProvider) {

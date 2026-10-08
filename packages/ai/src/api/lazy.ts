@@ -1,3 +1,4 @@
+import { assertLoopbackBaseUrl } from "../local-only.ts";
 import type { Api, AssistantMessage, AssistantMessageEvent, Model, ProviderStreams } from "../types.ts";
 import { AssistantMessageEventStream } from "../utils/event-stream.ts";
 
@@ -50,7 +51,12 @@ export function lazyStream(
 	const startedAt = Date.now();
 	const outer = new AssistantMessageEventStream();
 
-	setup()
+	// Oak fork: refuse non-loopback endpoints before any auth or network setup runs.
+	Promise.resolve()
+		.then(() => {
+			assertLoopbackBaseUrl(model.baseUrl, `${model.provider}/${model.id}`);
+			return setup();
+		})
 		.then((inner) => forwardStream(outer, inner))
 		.catch((error) => {
 			const message = createSetupErrorMessage(model, error, startedAt);

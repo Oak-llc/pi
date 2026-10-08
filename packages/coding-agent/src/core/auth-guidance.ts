@@ -5,8 +5,8 @@ const UNKNOWN_PROVIDER = "unknown";
 
 export function getProviderLoginHelp(): string {
 	return [
-		"Use /login to log into a provider via OAuth or API key. See:",
-		`  ${join(getDocsPath(), "providers.md")}`,
+		"This build only runs local models. Add one (llama.cpp, Ollama, LM Studio, vLLM, ...) as an",
+		"OpenAI-compatible provider with a loopback base URL in models.json. See:",
 		`  ${join(getDocsPath(), "models.md")}`,
 	].join("\n");
 }

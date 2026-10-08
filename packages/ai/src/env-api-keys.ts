@@ -151,6 +151,8 @@ export function findEnvKeys(provider: string, env?: ProviderEnv): string[] | und
 export function getEnvApiKey(provider: KnownProvider, env?: ProviderEnv): string | undefined;
 export function getEnvApiKey(provider: string, env?: ProviderEnv): string | undefined;
 export function getEnvApiKey(provider: string, env?: ProviderEnv): string | undefined {
+	// Oak fork: local models only. Environment API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, ...) are never read.
+	if (provider !== undefined) return undefined;
 	const envKeys = findEnvKeys(provider, env);
 	if (envKeys?.[0]) {
 		const apiKeyEnv = provider === "anthropic" ? envKeys.find((key) => key !== ANTHROPIC_AUTH_TOKEN_ENV) : envKeys[0];

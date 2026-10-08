@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { assertLoopbackBaseUrl } from "@earendil-works/pi-ai";
 import * as undici from "undici";
 
 export const DEFAULT_HTTP_IDLE_TIMEOUT_MS = 300_000;
@@ -83,19 +84,23 @@ export function configureHttpDispatcher(timeoutMs: number = DEFAULT_HTTP_IDLE_TI
 	if (normalizedTimeoutMs === undefined) {
 		throw new Error(`Invalid HTTP idle timeout: ${String(timeoutMs)}`);
 	}
+	// Oak fork: local models only. Every request made through global fetch (provider SDKs, MCP, extensions)
+	// is refused unless its origin is a loopback address. No proxy support: nothing may leave the machine.
+	const loopbackOnly: undici.Dispatcher.DispatchInterceptor = (dispatch) => (options, handler) => {
+		const origin = typeof options.origin === "string" ? options.origin : options.origin?.toString();
+		assertLoopbackBaseUrl(origin, "an outbound HTTP request");
+		return dispatch(options, handler);
+	};
 	const dispatcher = withUndiciErrorListener(
-		new undici.EnvHttpProxyAgent({
+		new undici.Agent({
 			allowH2: false,
-			// Keep HTTP origins on CONNECT tunnels as they were before Undici 8.7.
-			proxyTunnel: true,
 			bodyTimeout: normalizedTimeoutMs,
 			connect: {
 				autoSelectFamilyAttemptTimeout: DEFAULT_AUTO_SELECT_FAMILY_ATTEMPT_TIMEOUT_MS,
 			},
 			headersTimeout: normalizedTimeoutMs,
-			clientFactory: createUndiciClient,
 			factory: createUndiciOriginDispatcher,
-		}),
+		}).compose(loopbackOnly),
 	);
 	undici.setGlobalDispatcher(dispatcher);
 	// Keep fetch and the dispatcher on the same undici implementation. Node 26.0's

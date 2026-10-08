@@ -19,6 +19,7 @@ import type {
 	LoginOptions,
 	ProviderAuth,
 } from "./auth/types.ts";
+import { assertLoopbackBaseUrl } from "./local-only.ts";
 import { InMemoryModelsStore, type ModelsStore, type ModelsStoreEntry } from "./models-store.ts";
 import type {
 	AnyModel,
@@ -867,6 +868,8 @@ class ModelsImpl implements MutableModels {
 		if (options?.transformHeaders) headers = await options.transformHeaders(headers ?? {});
 		const env = resolution.env || options?.env ? { ...(resolution.env ?? {}), ...(options?.env ?? {}) } : undefined;
 		const requestModel: TModel = auth.baseUrl ? { ...model, baseUrl: auth.baseUrl } : model;
+		// Oak fork: auth may override baseUrl, so re-check after the override.
+		assertLoopbackBaseUrl(requestModel.baseUrl, `${model.provider}/${model.id}`);
 		const { transformHeaders: _transformHeaders, ...providerOptions } = options ?? {};
 		const requestOptions = { ...providerOptions, apiKey, headers, env } as Omit<TOptions, "transformHeaders"> &
 			ProviderRequestOptions<TModel>;

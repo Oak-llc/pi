@@ -7,10 +7,12 @@ import {
 	type AssistantMessage,
 	type AssistantMessageEventStream,
 	type AuthCheck,
+	type AuthContext,
 	type AuthInteraction,
 	type AuthOperationOptions,
 	type AuthResult,
 	type AuthType,
+	assertLoopbackBaseUrl,
 	type ClassifierApi,
 	type ClassifierContext,
 	type ClassifierModel,
@@ -56,7 +58,6 @@ import {
 	type SimpleStreamOptions,
 	type StreamOptions,
 } from "@earendil-works/pi-ai";
-import * as builtinProviderCatalog from "@earendil-works/pi-ai/providers/all";
 import {
 	assertChatModel,
 	assertClassifierInputSupported,
@@ -80,7 +81,6 @@ import {
 	resolveConfiguredModelHeaders,
 	validateExtensionProvider,
 } from "./provider-composer.ts";
-import { withRemoteCatalog } from "./remote-catalog-provider.ts";
 import { RuntimeCredentials } from "./runtime-credentials.ts";
 import {
 	createVirtualModel,
@@ -133,6 +133,15 @@ export interface ModelRuntimeAuthOverrides extends AuthOperationOptions {
 export type CredentialSynchronizationOperation = "login" | "logout" | "setRuntimeApiKey" | "removeRuntimeApiKey";
 
 /** Credentials changed successfully, but the local model/auth snapshot could not be synchronized. */
+/**
+ * Oak fork: provider auth never reads the process environment (no ANTHROPIC_API_KEY & co.), so a stray
+ * cloud credential in the user's shell can never make a non-local model usable.
+ */
+const LOCAL_ONLY_AUTH_CONTEXT: AuthContext = {
+	env: async () => undefined,
+	fileExists: async () => false,
+};
+
 export class CredentialSynchronizationError extends Error {
 	readonly providerId: string;
 	readonly operation: CredentialSynchronizationOperation;
@@ -209,7 +218,7 @@ export class ModelRuntime implements Models {
 		this.modelNetworkEnabled = modelNetworkEnabled;
 		this.defaultBuiltins = new Map(providers.map((provider) => [provider.id, provider]));
 		for (const [providerId, provider] of this.defaultBuiltins) this.builtins.set(providerId, provider);
-		this.models = createModels({ credentials, modelsStore });
+		this.models = createModels({ credentials, modelsStore, authContext: LOCAL_ONLY_AUTH_CONTEXT });
 		this.rebuildProviders();
 	}
 
@@ -223,14 +232,8 @@ export class ModelRuntime implements Models {
 			(modelsPath
 				? new FileModelsStore(options.modelsStorePath ?? join(dirname(modelsPath), "models-store.json"))
 				: new InMemoryCodingAgentModelsStore());
-		const builtinModelDataGeneratedAt = builtinProviderCatalog.getBuiltinModelDataGeneratedAt();
-		const providers = builtinProviderCatalog
-			.builtinProviders()
-			.map((provider) =>
-				provider.id === "radius"
-					? provider
-					: withRemoteCatalog(provider, options.catalogBaseUrl, builtinModelDataGeneratedAt),
-			);
+		// Oak fork: no built-in (cloud) providers and no remote catalog; models come from models.json and extensions.
+		const providers: Provider[] = [];
 		const runtime = new ModelRuntime(
 			credentials,
 			config,
@@ -239,7 +242,6 @@ export class ModelRuntime implements Models {
 			providers,
 			process.env.PI_OFFLINE === undefined,
 		);
-		runtime.configureRadiusProviders();
 		runtime.rebuildProviders();
 		const refreshFromNetwork = runtime.modelNetworkEnabled && options.allowModelNetwork === true;
 		const controller =
@@ -258,23 +260,6 @@ export class ModelRuntime implements Models {
 			if (timeout) clearTimeout(timeout);
 		}
 		return runtime;
-	}
-
-	private configureRadiusProviders(): void {
-		this.builtins.clear();
-		for (const [providerId, provider] of this.defaultBuiltins) this.builtins.set(providerId, provider);
-		for (const providerId of this.config.getProviderIds()) {
-			const config = this.config.getProvider(providerId);
-			if (config?.oauth !== "radius" || !config.baseUrl) continue;
-			this.builtins.set(
-				providerId,
-				builtinProviderCatalog.radiusProvider({
-					id: providerId,
-					name: config.name ?? providerId,
-					gateway: config.baseUrl.replace(/\/v1\/?$/u, ""),
-				}),
-			);
-		}
 	}
 
 	private providerIds(): Set<string> {
@@ -677,6 +662,8 @@ export class ModelRuntime implements Models {
 				? { ...(resolution.env ?? {}), ...(providerOptions.env ?? {}) }
 				: undefined;
 		const requestModel: TModel = resolution.auth.baseUrl ? { ...model, baseUrl: resolution.auth.baseUrl } : model;
+		// Oak fork: auth may override baseUrl, so re-check the final endpoint before anything is sent.
+		assertLoopbackBaseUrl(requestModel.baseUrl, `${model.provider}/${model.id}`);
 		return {
 			provider,
 			model: requestModel,
@@ -840,7 +827,6 @@ export class ModelRuntime implements Models {
 
 	async refresh(options: ModelsRefreshOptions = {}): Promise<ModelsRefreshResult> {
 		this.config = await ModelConfig.load(this.modelsPath);
-		this.configureRadiusProviders();
 		if (options.providers) {
 			for (const providerId of new Set(options.providers)) this.recomposeProvider(providerId);
 			this.updateModelSnapshot();

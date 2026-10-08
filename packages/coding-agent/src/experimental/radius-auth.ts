@@ -1,8 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { normalizeRadiusGatewayUrl } from "@earendil-works/pi-ai/providers/radius-config";
-import { getAuthCredential } from "../cli/auth-command.ts";
 import type { AuthInput } from "../cli/experimental/command-options.ts";
-import { ModelRuntime } from "../core/model-runtime.ts";
 import { getRadiusGatewayUrl } from "../core/radius.ts";
 import { resolvePath } from "../utils/paths.ts";
 
@@ -17,7 +15,6 @@ export interface RadiusRelayAuth {
 export class RadiusRelayAuthResolver {
 	readonly #input: AuthInput | undefined;
 	readonly #gateway: string;
-	#modelRuntime: Promise<ModelRuntime> | undefined;
 
 	constructor(input?: AuthInput, gateway = getRadiusGatewayUrl()) {
 		this.#input = input;
@@ -41,15 +38,9 @@ export class RadiusRelayAuthResolver {
 		const explicit = await this.#explicitToken(options.signal);
 		if (explicit !== undefined) return { gateway: this.#gateway, token: explicit };
 
-		this.#modelRuntime ??= ModelRuntime.create({ refreshOnCreate: false, allowModelNetwork: false });
-		const runtime = await this.#modelRuntime;
-		options.signal?.throwIfAborted();
-		const token = getAuthCredential(
-			await runtime.getAuth("radius", { minOAuthValidityMs: 5 * 60_000, signal: options.signal }),
-		);
-		if (token !== undefined && token.length > 0) return { gateway: this.#gateway, token };
+		// Oak fork: there is no login, so no stored Radius credential exists to fall back to.
 		if (options.required) {
-			throw new Error("Radius authentication is required; start Pi and run /login radius, then retry");
+			throw new Error("Radius relay connections are unavailable in this build (local models only)");
 		}
 		return undefined;
 	}
